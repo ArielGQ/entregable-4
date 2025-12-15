@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: secure-app
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: docker.io/focasoftware/frontend-secure:5.3@sha256:9734e83e23a75dddc9ee16d4f8f441f120cf43adff8c289ac7f100100bcef7fd
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
+        env:
+        - name: FRONTEND_URL
+          valueFrom:
+            configMapKeyRef:
+              name: frontend-config
+              key: FRONTEND_URL
+        volumeMounts:
+        - name: var-cache
+          mountPath: /var/cache/nginx
+        - name: var-run
+          mountPath: /var/run
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - SETGID
+            - SETUID
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: var-cache
+        emptyDir: {}
+      - name: var-run
+        emptyDir: {}
+      - name: nginx-config
+        configMap:
+          name: frontend-config
+          items:
+          - key: nginx.conf
+            path: nginx.conf
+
